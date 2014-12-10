@@ -8,18 +8,7 @@ var http = require('http'),
 
 var keyPath = 'key.txt';
 var domain = 'generic-h3t.herokuapp.com'
-var key;
-
-function loadKey() {
-  readline.createInterface({
-    input: fs.createReadStream(keyPath),
-    output: process.stdout,
-    terminal: false
-  }).on('line', function (line) {
-    key = line;
-  }).on('close', function () {
-    return;
-  });}
+var key = 'ADAwK9N2qhrpDuRQnD9pRb8DEpLA0o9rIGzOMP0w';
 
 function parseRequest(req) {
   var parsedUrl = url.parse(req.url);
@@ -128,8 +117,6 @@ function parseCookies (request) {
     return list;
 }
 
-
-loadKey();
 
 http.createServer(function (req, res) {
   var responses = {
