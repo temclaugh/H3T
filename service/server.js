@@ -32,7 +32,7 @@ function loadUsers() {
     terminal: false
   }).on('line', function (line) {
     data = line.split(',');
-    users[data[0]] = {hash: data[1]};
+    users[data[0]] = {hash: data[1], cookie: data[2]};
   }).on('close', function () {
     return;
   });
@@ -80,7 +80,7 @@ function renderHtml(req, res, path, cookie) {
 }
 
 function respondHome(req, res) {
-  renderHtml(req, res, 'home.html');
+  renderHtml(req, res, 'index.html');
 }
 
 function respondToken(req, res) {
@@ -91,6 +91,7 @@ function respondToken(req, res) {
   var cookie = querystring.parse(req.headers.cookie).id;
   var found = false;
   var user;
+  console.log("cookie: " + cookie);
   for (var user_ in users) {
     if (users[user_].cookie == cookie) {
       found = true;
@@ -99,13 +100,13 @@ function respondToken(req, res) {
     }
   }
   if (!found) {
-    res.writeHead(200, {'Content-Type': 'text/plain'});
-    res.end();
+    res.writeHead(200, {'Content-Type': 'application/json'});
+    res.end(JSON.stringify({}));
     return;
   }
   var message = makeToken(tokenRequest, user);
-  res.writeHead(200, {'Content-Type': 'text/plain'});
-  res.end(message);
+  res.writeHead(200, {'Content-Type': 'application/json'});
+  res.end(JSON.stringify({"message": message, "domain": tokenRequest.domain}));
 }
 
 function respondRegister(req, res) {
@@ -123,7 +124,7 @@ function respondRegister(req, res) {
       var password = reg.password;
       var hash = crypto.createHash('md5').update(password).digest('hex');
       if (username in users || username == null || password == null) {
-        respond500(req, res);
+        renderHtml(req, res, 'register_failure.html');
         return;
       }
       var cookie = crypto.randomBytes(32).toString('hex');
@@ -152,7 +153,9 @@ function respondLogin(req, res) {
       var password = reg.password;
       var hash = crypto.createHash('md5').update(password).digest('hex');
       if (username in users && users[username].hash == hash) {
-        renderHtml(req, res, 'login_success.html');
+        cookie = users[username].cookie;
+        console.log("setting cookie to " + cookie);
+        renderHtml(req, res, 'login_success.html', ['id=' + cookie]);
         return;
       }
       respond500(req, res);
@@ -244,5 +247,4 @@ http.createServer(function (req, res) {
   message = cipherEncrypt(message, tokenRequest.domain);
 
 }).listen(process.env.PORT || 5000);
-
 
