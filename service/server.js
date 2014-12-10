@@ -8,20 +8,19 @@ var http = require('http'),
 var domains = {};
 
 function initDomains() {
-  var domainPath = 'domains.txt';
+  var domainPath = 'domains.csv';
 
   readline.createInterface({
     input: fs.createReadStream(domainPath),
     output: process.stdout,
     terminal: false
   }).on('line', function (line) {
-    domains[line] = {};
+    data = line.split(',');
+    domains[data[0]] = {key: data[1]};
   }).on('close', function () {
-    console.log(domains);
+    return;
   });
 }
-
-
 
 function displayRequest(req) {
   var u = url.parse('h3t' + req.url);
@@ -73,15 +72,31 @@ function getToken(tokenRequest) {
   return JSON.stringify(token);
 }
 
+function encryptToken(token, domain) {
+
+  var algorithm = 'aes-256-cbc';
+  key = domains[domain].key;
+
+  var cipher = crypto.createCipher(algorithm, key);
+  var decipher = crypto.createDecipher(algorithm, key);
+
+  var encryptedToken = cipher.update(token, 'utf8', 'base64');
+  encryptedToken += cipher.final('base64');
+
+  var decryptedToken = decipher.update(encryptedToken, 'base64', 'utf8');
+  decryptedToken += decipher.final('utf8');
+
+}
+
 initDomains();
 
 http.createServer(function (req, res) {
   var tokenRequest = parseRequest(req);
   var token = getToken(tokenRequest);
-  console.log(token);
+  encryptToken(token, tokenRequest.domain);
 
-  res.writeHead(200, {'Content-Type': 'text/plain'});
-  res.end('Hello World\n');
+  res.writeHead(200, {'Content-Type': 'application/json'});
+  res.end(token);
 }).listen(1337, '127.0.0.1');
 
 console.log('Server running at http://127.0.0.1:1337/');
