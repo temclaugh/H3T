@@ -34,26 +34,9 @@ function loadUsers() {
     data = line.split(',');
     users[data[0]] = {hash: data[1]};
   }).on('close', function () {
-    console.log(users);
     return;
   });
 }
-
-function displayRequest(req) {
-  var u = url.parse('h3t' + req.url);
-  console.log(Object.keys(req));
-  console.log('*** headers ***');
-  console.log(req.headers);
-  console.log('*** domain ***');
-  console.log(req.domain);
-  console.log('*** url ***');
-  console.log(req.url);
-  console.log('*** method ***');
-  console.log(req.method);
-  console.log(u);
-  console.log(req.headers.cookie);
-}
-
 
 function validateUser(req) {
   return true;
@@ -63,6 +46,9 @@ function parseRequest(req) {
   var parsedUrl = url.parse(req.url);
   var path = parsedUrl.pathname;
   console.log(path);
+  if (path == '/') {
+    return 'home';
+  }
   if (path == '/token') {
     return 'token';
   }
@@ -89,6 +75,10 @@ function renderHtml(req, res, path) {
   return;
 }
 
+function respondHome(req, res) {
+  renderHtml(req, res, 'home.html');
+}
+
 function respondToken(req, res) {
   res.writeHead(200, {'Content-Type': 'application/json'});
   res.end('token');
@@ -107,11 +97,11 @@ function respondRegister(req, res) {
       var reg = querystring.parse(body);
       var username = reg.username;
       var password = reg.password;
+      var hash = crypto.createHash('md5').update(password).digest('hex');
       if (username in users || username == null || password == null) {
         respond500(req, res);
         return;
       }
-      var hash = crypto.createHash('md5').update(password).digest('hex');
       users[username] = hash;
       var output = username + ',' + hash + '\n';
       fs.appendFile(usersPath, output, function (err) {
@@ -123,8 +113,26 @@ function respondRegister(req, res) {
 }
 
 function respondLogin(req, res) {
-  res.writeHead(200, {'Content-Type': 'application/json'});
-  res.end('login');
+  if (req.method == 'GET') {
+    renderHtml(req, res, 'login.html');
+    return;
+  }
+  if (req.method == 'POST') {
+    var body = '';
+    req.on('data', function (chunk) {
+      body += chunk;
+    }).on('end', function () {
+      var reg = querystring.parse(body);
+      var username = reg.username;
+      var password = reg.password;
+      var hash = crypto.createHash('md5').update(password).digest('hex');
+      if (username in users && users[username].hash == hash) {
+        renderHtml(req, res, 'login_success.html');
+        return;
+      }
+      respond500(req, res);
+    });
+  }
 }
 
 function respond404(req, res) {
@@ -197,6 +205,7 @@ loadUsers();
 
 http.createServer(function (req, res) {
   var responses = {
+    'home': respondHome,
     'token': respondToken,
     'register': respondRegister,
     'login': respondLogin,
