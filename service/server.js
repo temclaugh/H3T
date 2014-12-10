@@ -201,7 +201,7 @@ function makeToken(tokenRequest, user) {
     'domain': domain,
     'expiration': expiration,
   }
-  return JSON.stringify(token);
+  return cipherEncrypt(JSON.stringify(token), domain);
 }
 
 function cipherEncrypt(token, domain) {
