@@ -118,8 +118,6 @@ function parseCookies (request) {
 }
 
 
-loadKey();
-
 http.createServer(function (req, res) {
   var responses = {
     'content': respondContent,
