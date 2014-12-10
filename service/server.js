@@ -45,7 +45,6 @@ function validateUser(req) {
 function parseRequest(req) {
   var parsedUrl = url.parse(req.url);
   var path = parsedUrl.pathname;
-  console.log(path);
   if (path == '/') {
     return 'home';
   }
@@ -57,6 +56,9 @@ function parseRequest(req) {
   }
   if (path == '/login') {
     return 'login';
+  }
+  if (path == '/logout') {
+    return 'logout';
   }
   return '404';
 }
@@ -163,6 +165,10 @@ function respondLogin(req, res) {
   }
 }
 
+function respondLogout(req, res) {
+  renderHtml(req, res, 'logout.html', ['id=']);
+}
+
 function respond404(req, res) {
   renderHtml(req, res, '404.html');
 }
@@ -233,6 +239,7 @@ http.createServer(function (req, res) {
     'token': respondToken,
     'register': respondRegister,
     'login': respondLogin,
+    'logout': respondLogout,
     '404': respond404,
   }
   var requestType = parseRequest(req);
