@@ -6,19 +6,35 @@ var http = require('http'),
     crypto = require('crypto'),
     util = require('util');
 
+var domainsPath = 'domains.csv';
+var usersPath = 'users.csv';
+
 var domains = {};
+var users = {};
 
-function initDomains() {
-  var domainPath = 'domains.csv';
-
+function loadDomains() {
   readline.createInterface({
-    input: fs.createReadStream(domainPath),
+    input: fs.createReadStream(domainsPath),
     output: process.stdout,
     terminal: false
   }).on('line', function (line) {
     data = line.split(',');
     domains[data[0]] = {key: data[1]};
   }).on('close', function () {
+    return;
+  });
+}
+
+function loadUsers() {
+  readline.createInterface({
+    input: fs.createReadStream(usersPath),
+    output: process.stdout,
+    terminal: false
+  }).on('line', function (line) {
+    data = line.split(',');
+    users[data[0]] = {hash: data[1]};
+  }).on('close', function () {
+    console.log(users);
     return;
   });
 }
@@ -57,7 +73,20 @@ function parseRequest(req) {
     return 'login';
   }
   return '404';
+}
 
+function renderHtml(req, res, path) {
+  fs.readFile(path, function (err, data) {
+    if (err) {
+      console.log(err);
+      respond500(req, res);
+      return;
+    }
+    res.writeHead(200, {'Content-Type': 'text/html', 'Content-Length': data.length});
+    res.write(data);
+    res.end();
+  });
+  return;
 }
 
 function respondToken(req, res) {
@@ -67,21 +96,29 @@ function respondToken(req, res) {
 
 function respondRegister(req, res) {
   if (req.method == 'GET') {
-    fs.readFile('register.html', function (err, data) {
-      if (err) {
-        console.log(err);
-        respond500(req, res);
-        return;
-      }
-      res.writeHead(200, {'Content-Type': 'text/html', 'Content-Length': data.length});
-      res.write(data);
-      res.end();
-    });
+    renderHtml(req, res, 'register.html');
     return;
   }
   if (req.method == 'POST') {
-    console.log('post');
-    respond500(req, res);
+    var body = '';
+    req.on('data', function (chunk) {
+      body += chunk;
+    }).on('end', function () {
+      var reg = querystring.parse(body);
+      var username = reg.username;
+      var password = reg.password;
+      if (username in users || username == null || password == null) {
+        respond500(req, res);
+        return;
+      }
+      var hash = crypto.createHash('md5').update(password).digest('hex');
+      users[username] = hash;
+      var output = username + ',' + hash + '\n';
+      fs.appendFile(usersPath, output, function (err) {
+        console.log(err);
+      });
+      renderHtml(req, res, 'register_success.html');
+    });
   }
 }
 
@@ -91,13 +128,12 @@ function respondLogin(req, res) {
 }
 
 function respond404(req, res) {
-  console.log("404");
-  res.writeHead(404, {'Content-type': 'text/html'});
-  var rs = fs.createReadStream('404.html');
-  rs.pipe(res);
+  renderHtml(req, res, '404.html');
 }
 
 function respond500(req, res) {
+  renderHtml(req, res, '500.html');
+  return;
   console.log("500");
   res.writeHead(500, {'Content-type': 'text/html'});
   var rs = fs.createReadStream('500.html');
@@ -156,7 +192,8 @@ function cipherEncrypt(token, domain) {
 
 }
 
-initDomains();
+loadDomains();
+loadUsers();
 
 http.createServer(function (req, res) {
   var responses = {
