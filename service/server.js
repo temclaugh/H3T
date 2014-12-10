@@ -56,19 +56,55 @@ function parseRequest(req) {
   if (path == '/login') {
     return 'login';
   }
-  return null;
+  return '404';
 
 }
 
-function error404(res) {
-  console.log("error");
-  res.writeHead(404, {'content-type': 'text/html'});
+function respondToken(req, res) {
+  res.writeHead(200, {'Content-Type': 'application/json'});
+  res.end('token');
+}
+
+function respondRegister(req, res) {
+  if (req.method == 'GET') {
+    fs.readFile('register.html', function (err, data) {
+      if (err) {
+        console.log(err);
+        respond500(req, res);
+        return;
+      }
+      res.writeHead(200, {'Content-Type': 'text/html', 'Content-Length': data.length});
+      res.write(data);
+      res.end();
+    });
+    return;
+  }
+  if (req.method == 'POST') {
+    console.log('post');
+    respond500(req, res);
+  }
+}
+
+function respondLogin(req, res) {
+  res.writeHead(200, {'Content-Type': 'application/json'});
+  res.end('login');
+}
+
+function respond404(req, res) {
+  console.log("404");
+  res.writeHead(404, {'Content-type': 'text/html'});
   var rs = fs.createReadStream('404.html');
   rs.pipe(res);
 }
 
-function parseQuery(req) {
+function respond500(req, res) {
+  console.log("500");
+  res.writeHead(500, {'Content-type': 'text/html'});
+  var rs = fs.createReadStream('500.html');
+  rs.pipe(res);
+}
 
+function parseQuery(req) {
   var parsedUrl = url.parse(req.url);
   var pathName = parsedUrl.pathname;
   if (pathName == '/token') {
@@ -76,14 +112,12 @@ function parseQuery(req) {
     if (!('domain' in parsedQuery)) {
       return console.log('ERROR: no domain specified');
     }
-
     parsedQuery.domain = parsedQuery.domain.toLowerCase();
     return parsedQuery;
   }
   if (pathName == '/register') {
     return console.log('ERROR: token not requested');
   }
-
 }
 
 function getToken(tokenRequest) {
@@ -125,12 +159,16 @@ function cipherEncrypt(token, domain) {
 initDomains();
 
 http.createServer(function (req, res) {
-
-  var requestType = parseRequest(req);
-  if (requestType == null) {
-    error404(res);
-    return;
+  var responses = {
+    'token': respondToken,
+    'register': respondRegister,
+    'login': respondLogin,
+    '404': respond404,
   }
+  var requestType = parseRequest(req);
+  responses[requestType](req, res);
+  return;
+
   res.writeHead(200, {'Content-Type': 'application/json'});
   res.end(message);
   return;
