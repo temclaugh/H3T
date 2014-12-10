@@ -7,7 +7,7 @@ var http = require('http'),
     util = require('util');
 
 var keyPath = 'key.txt';
-var domain = 'google.com'
+var domain = 'generic-h3t.herokuapp.com'
 var key;
 
 function loadKey() {
