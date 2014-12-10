@@ -60,7 +60,8 @@ function respondHome(req, res) {
 function respondContent(req, res) {
   var cookies = parseCookies(req);
   console.log(cookies);
-  var message = cookies['HT-Token'];
+  var message = 'ta0jgiak/jANL7RsEyUKwIXgR8launGowgMHUitxJcgH7Uc2IsTUeNZaQ/OsfTYRhXvWyyaLB4aEgR3/5HriSxO4wHIOOSxsDAhEJMQu+AmpO8msM3sJDKdvej50Tf7q'
+//  var message = cookies['HT-Token'];
   if (message) {
     var token = JSON.parse(cipherDecrypt(message));
     if (token.domain != domain || Date.parse(token.expiration) < new Date()) {
@@ -69,12 +70,13 @@ function respondContent(req, res) {
     }
     renderHtml(req, res, 'verify_success.html');
     return;
+  } else {
+    res.writeHead(301,
+      {Location: 'http://h3t.herokuapp.com/redirect'}
+    );
+    res.end();  
+    return;
   }
-  res.writeHead(301,
-    {Location: 'http://h3t.herokuapp.com/redirect'}
-  );
-  res.end();  
-  return;
 }
 
 function respond404(req, res) {
@@ -106,7 +108,6 @@ function cipherDecrypt(encryptedToken) {
 
   var algorithm = 'aes-256-cbc';
 
-  var cipher = crypto.createCipher(algorithm, key);
   var decipher = crypto.createDecipher(algorithm, key);
 
   var decryptedToken = decipher.update(encryptedToken, 'base64', 'utf8');
