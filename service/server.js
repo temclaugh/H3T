@@ -99,13 +99,12 @@ function respondToken(req, res) {
     }
   }
   if (!found) {
-    res.writeHead(200, {'Content-Type': 'application/json'});
+    res.writeHead(200, {'Content-Type': 'text/plain'});
     res.end();
     return;
   }
   var message = makeToken(tokenRequest, user);
-  console.log("USER: " + user);
-  res.writeHead(200, {'Content-Type': 'application/json'});
+  res.writeHead(200, {'Content-Type': 'text/plain'});
   res.end(message);
 }
 
@@ -244,6 +243,6 @@ http.createServer(function (req, res) {
   var message = makeToken(tokenRequest);
   message = cipherEncrypt(message, tokenRequest.domain);
 
-}).listen(8080, '127.0.0.1');
+}).listen(process.env.PORT || 5000);
 
-console.log('Server running at http://127.0.0.1:1337/');
+
