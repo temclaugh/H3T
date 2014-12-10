@@ -3,12 +3,15 @@ var http = require('http'),
     querystring = require('querystring'),
     fs = require('fs'),
     readline = require('readline');
+    crypto = require('crypto');
 
 var domains = {};
 
-function getDomains() {
+function initDomains() {
+  var domainPath = 'domains.txt';
+
   readline.createInterface({
-    input: fs.createReadStream('domains.txt'),
+    input: fs.createReadStream(domainPath),
     output: process.stdout,
     terminal: false
   }).on('line', function (line) {
@@ -17,6 +20,8 @@ function getDomains() {
     console.log(domains);
   });
 }
+
+
 
 function displayRequest(req) {
   var u = url.parse('h3t' + req.url);
@@ -30,11 +35,12 @@ function displayRequest(req) {
   console.log('*** method ***');
   console.log(req.method);
   console.log(u);
+  console.log(req.headers.cookie);
 }
 
 function parseRequest(req) {
-  var parsedUrl = url.parse(req.url);
 
+  var parsedUrl = url.parse(req.url);
   var pathName = parsedUrl.pathname;
   if (pathName != '/get_token') {
     console.log('ERROR: token not requested');
@@ -44,15 +50,36 @@ function parseRequest(req) {
   if (!('domain' in parsedQuery)) {
     console.log('ERROR: no domain specified');
   }
-  var domain = parsedQuery
-  console.log(parsedQuery);
+
+  parsedQuery.domain = parsedQuery.domain.toLowerCase();
+  return parsedQuery;
 }
 
-getDomains();
+function getToken(tokenRequest) {
+
+  var domain = tokenRequest.domain;
+  if (!(domain in domains)) {
+    return console.log("ERROR: domain is not supported");
+  }
+
+  var expiration = new Date();
+  expiration.setMonth(expiration.getMonth() + 1);
+
+  token = {
+    'user': 1,
+    'domain': domain,
+    'expiration': expiration,
+  }
+  return JSON.stringify(token);
+}
+
+initDomains();
 
 http.createServer(function (req, res) {
-  displayRequest(req);
-  parseRequest(req);
+  var tokenRequest = parseRequest(req);
+  var token = getToken(tokenRequest);
+  console.log(token);
+
   res.writeHead(200, {'Content-Type': 'text/plain'});
   res.end('Hello World\n');
 }).listen(1337, '127.0.0.1');
