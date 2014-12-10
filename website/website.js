@@ -115,7 +115,7 @@ function requestToken(req, res) {
       // UPDATE user.csv
       renderHtml(req, res, 'verify_success.html', ['id=' + cookie]);
     });
-  }  
+  }
 }
 
 function respondRegister(req, res) {

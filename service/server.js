@@ -107,8 +107,14 @@ function respondToken(req, res) {
     return;
   }
   var message = makeToken(tokenRequest, user);
+  var expiration = new Date();
+  expiration.setSeconds(expiration.getSeconds() + 10);
   res.writeHead(200, {'Content-Type': 'application/json'});
-  res.end(JSON.stringify({"message": message, "domain": tokenRequest.domain}));
+  res.end(JSON.stringify({
+    "message": message,
+    "domain": tokenRequest.domain,
+    "expiration": expiration
+  }));
 }
 
 function respondRegister(req, res) {
@@ -200,7 +206,6 @@ function makeToken(tokenRequest, user) {
   if (!(domain in domains)) {
     return console.log("ERROR: domain is not supported");
   }
-
   var expiration = new Date();
   expiration.setMonth(expiration.getMonth() + 1);
 
@@ -245,13 +250,6 @@ http.createServer(function (req, res) {
   var requestType = parseRequest(req);
   responses[requestType](req, res);
   return;
-
-  res.writeHead(200, {'Content-Type': 'application/json'});
-  res.end(message);
-  return;
-  var tokenRequest = parseQuery(req);
-  var message = makeToken(tokenRequest);
-  message = cipherEncrypt(message, tokenRequest.domain);
 
 }).listen(process.env.PORT || 5000);
 
