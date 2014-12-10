@@ -61,14 +61,18 @@ function parseRequest(req) {
   return '404';
 }
 
-function renderHtml(req, res, path) {
+function renderHtml(req, res, path, cookie) {
   fs.readFile(path, function (err, data) {
     if (err) {
       console.log(err);
       respond500(req, res);
       return;
     }
-    res.writeHead(200, {'Content-Type': 'text/html', 'Content-Length': data.length});
+    var header = {'Content-Type': 'text/html', 'Content-Length': data.length};
+    if (cookie != null) {
+      header['Set-Cookie'] = cookie;
+    }
+    res.writeHead(200, header);
     res.write(data);
     res.end();
   });
@@ -80,8 +84,29 @@ function respondHome(req, res) {
 }
 
 function respondToken(req, res) {
+
+  var tokenRequest = parseQuery(req);
+  console.log(tokenRequest);
+
+  var cookie = querystring.parse(req.headers.cookie).id;
+  var found = false;
+  var user;
+  for (var user_ in users) {
+    if (users[user_].cookie == cookie) {
+      found = true;
+      user = user_;
+      break;
+    }
+  }
+  if (!found) {
+    res.writeHead(200, {'Content-Type': 'application/json'});
+    res.end();
+    return;
+  }
+  var message = makeToken(tokenRequest, user);
+  console.log("USER: " + user);
   res.writeHead(200, {'Content-Type': 'application/json'});
-  res.end('token');
+  res.end(message);
 }
 
 function respondRegister(req, res) {
@@ -102,12 +127,13 @@ function respondRegister(req, res) {
         respond500(req, res);
         return;
       }
-      users[username] = hash;
-      var output = username + ',' + hash + '\n';
+      var cookie = crypto.randomBytes(32).toString('hex');
+      users[username] = {hash: hash, cookie: cookie};
+      var output = username + ',' + hash + ',' + cookie + '\n';
       fs.appendFile(usersPath, output, function (err) {
         console.log(err);
       });
-      renderHtml(req, res, 'register_success.html');
+      renderHtml(req, res, 'register_success.html', ['id=' + cookie]);
     });
   }
 }
@@ -139,6 +165,10 @@ function respond404(req, res) {
   renderHtml(req, res, '404.html');
 }
 
+function respond403(req, res) {
+  renderHtml(req, res, '403.html');
+}
+
 function respond500(req, res) {
   renderHtml(req, res, '500.html');
   return;
@@ -151,20 +181,12 @@ function respond500(req, res) {
 function parseQuery(req) {
   var parsedUrl = url.parse(req.url);
   var pathName = parsedUrl.pathname;
-  if (pathName == '/token') {
-    var parsedQuery = querystring.parse(parsedUrl.query);
-    if (!('domain' in parsedQuery)) {
-      return console.log('ERROR: no domain specified');
-    }
-    parsedQuery.domain = parsedQuery.domain.toLowerCase();
-    return parsedQuery;
-  }
-  if (pathName == '/register') {
-    return console.log('ERROR: token not requested');
-  }
+  var parsedQuery = querystring.parse(parsedUrl.query);
+  parsedQuery.domain = parsedQuery.domain.toLowerCase();
+  return parsedQuery;
 }
 
-function getToken(tokenRequest) {
+function makeToken(tokenRequest, user) {
 
   var domain = tokenRequest.domain;
   if (!(domain in domains)) {
@@ -175,7 +197,7 @@ function getToken(tokenRequest) {
   expiration.setMonth(expiration.getMonth() + 1);
 
   token = {
-    'user': 1,
+    'user': user,
     'domain': domain,
     'expiration': expiration,
   }
@@ -219,7 +241,7 @@ http.createServer(function (req, res) {
   res.end(message);
   return;
   var tokenRequest = parseQuery(req);
-  var message = getToken(tokenRequest);
+  var message = makeToken(tokenRequest);
   message = cipherEncrypt(message, tokenRequest.domain);
 
 }).listen(8080, '127.0.0.1');
