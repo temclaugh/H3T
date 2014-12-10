@@ -6,26 +6,9 @@ var http = require('http'),
     crypto = require('crypto'),
     util = require('util');
 
-var usersPath = 'users.csv';
 var keyPath = 'key.txt';
-
-var domain = 'google.com'
-var users = {};
-var user;
+var domain = 'generic-h3t.herokuapp.com'
 var key;
-
-function loadUsers() {
-  readline.createInterface({
-    input: fs.createReadStream(usersPath),
-    output: process.stdout,
-    terminal: false
-  }).on('line', function (line) {
-    data = line.split(',');
-    users[data[0]] = {hash: data[1], cookie: data[2], token_expire: Date.parse(data[3])};
-  }).on('close', function () {
-    return;
-  });
-}
 
 function loadKey() {
   readline.createInterface({
@@ -38,24 +21,15 @@ function loadKey() {
     return;
   });}
 
-function validateUser(req) {
-  return true;
-}
-
 function parseRequest(req) {
   var parsedUrl = url.parse(req.url);
   var path = parsedUrl.pathname;
+  console.log("path: " + path);
   if (path == '/') {
-    return 'content';
+    return 'home';
   }
-  if (path == '/register') {
-    return 'register';
-  }
-  if (path == '/login') {
-    return 'login';
-  }
-  if (path == '/logout') {
-    return 'logout';
+  if (path == '/content') {
+    return 'content'
   }
   return '404';
 }
@@ -78,107 +52,31 @@ function renderHtml(req, res, path, cookie) {
   return;
 }
 
-function respondContent(req, res) {
-  if (!user) {
-    renderHtml(req, res, 'index.html');
-    return;
-  }
-  console.log(user.token_expire);
-  console.log(Date.parse(new Date()));
-  if (user.token_expire > Date.parse(new Date())) {
-    renderHtml(req, res, 'content.html');
-    return;
-  }
-  requestToken(req, res);
+function respondHome(req, res) {
+  renderHtml(req, res, 'index.html');
 }
 
 // TODO (junsuplee): implement token request properly.
-function requestToken(req, res) {
-  if (req.method == 'GET') {
-    renderHtml(req, res, 'verify.html');
+function respondContent(req, res) {
+  var cookies = parseCookies(req);
+  console.log(cookies);
+  var message = 'ta0jgiak/jANL7RsEyUKwIXgR8launGowgMHUitxJcgH7Uc2IsTUeNZaQ/OsfTYRhXvWyyaLB4aEgR3/5HriSxO4wHIOOSxsDAhEJMQu+AmpO8msM3sJDKdvej50Tf7q'
+//  var message = cookies['HT-Token'];
+  if (message) {
+    var token = JSON.parse(cipherDecrypt(message));
+    if (token.domain != domain || Date.parse(token.expiration) < new Date()) {
+      renderHtml(req, res, 'verify_failure.html');
+      return;
+    }
+    renderHtml(req, res, 'verify_success.html');
+    return;
+  } else {
+    res.writeHead(301,
+      {Location: 'http://h3t.herokuapp.com/redirect'}
+    );
+    res.end();
     return;
   }
-  if (req.method == 'POST') {
-    var body = '';
-    req.on('data', function (chunk) {
-      body += chunk;
-    }).on('end', function () {
-      var reg = querystring.parse(body);
-      var message = reg.token;
-      var token = JSON.parse(cipherDecrypt(message));
-
-      if (token.domain != domain || Date.parse(token.expire) > user.token_expire) {
-        renderHtml(req, res, 'verify_failure.html');
-        return;
-      }
-      user.token_expire = Date.parse(token.expire);
-      // UPDATE user.csv
-      renderHtml(req, res, 'verify_success.html', ['id=' + cookie]);
-    });
-  }
-}
-
-function respondRegister(req, res) {
-  if (req.method == 'GET') {
-    renderHtml(req, res, 'register.html');
-    return;
-  }
-  if (req.method == 'POST') {
-    var body = '';
-    req.on('data', function (chunk) {
-      body += chunk;
-    }).on('end', function () {
-      var reg = querystring.parse(body);
-      var username = reg.username;
-      var password = reg.password;
-      var hash = crypto.createHash('md5').update(password).digest('hex');
-      if (username in users || username == null || password == null) {
-        renderHtml(req, res, 'register_failure.html');
-        return;
-      }
-      var cookie = crypto.randomBytes(32).toString('hex');
-      var token_expire = new Date();
-      token_expire.setDate(token_expire.getDate() - 1);
-      users[username] = {hash: hash, cookie: cookie, token_expire: Date.parse(token_expire)};
-      var output = username + ',' + hash + ',' + cookie + ',' + token_expire + '\n';
-      fs.appendFile(usersPath, output, function (err) {
-        console.log(err);
-      });
-      user = users[username];
-      renderHtml(req, res, 'register_success.html', ['id=' + cookie]);
-    });
-  }
-}
-
-function respondLogin(req, res) {
-  if (req.method == 'GET') {
-    renderHtml(req, res, 'login.html');
-    return;
-  }
-  if (req.method == 'POST') {
-    var body = '';
-    req.on('data', function (chunk) {
-      body += chunk;
-    }).on('end', function () {
-      var reg = querystring.parse(body);
-      var username = reg.username;
-      var password = reg.password;
-      var hash = crypto.createHash('md5').update(password).digest('hex');
-      if (username in users && users[username].hash == hash) {
-        cookie = users[username].cookie;
-        console.log("setting cookie to " + cookie);
-        user = users[username];
-        renderHtml(req, res, 'login_success.html', ['id=' + cookie]);
-        return;
-      }
-      respond500(req, res);
-    });
-  }
-}
-
-function respondLogout(req, res) {
-  user = null;
-  renderHtml(req, res, 'logout.html', ['id=']);
 }
 
 function respond404(req, res) {
@@ -210,7 +108,6 @@ function cipherDecrypt(encryptedToken) {
 
   var algorithm = 'aes-256-cbc';
 
-  var cipher = crypto.createCipher(algorithm, key);
   var decipher = crypto.createDecipher(algorithm, key);
 
   var decryptedToken = decipher.update(encryptedToken, 'base64', 'utf8');
@@ -219,18 +116,29 @@ function cipherDecrypt(encryptedToken) {
   return decryptedToken;
 }
 
+function parseCookies (request) {
+    var list = {},
+        rc = request.headers.cookie;
+
+    rc && rc.split(';').forEach(function( cookie ) {
+        var parts = cookie.split('=');
+        list[parts.shift().trim()] = decodeURI(parts.join('='));
+    });
+
+    return list;
+}
+
+
 loadKey();
-loadUsers();
 
 http.createServer(function (req, res) {
   var responses = {
     'content': respondContent,
-    'register': respondRegister,
-    'login': respondLogin,
-    'logout': respondLogout,
+    'home' : respondHome,
     '404': respond404,
   }
   var requestType = parseRequest(req);
+  console.log(requestType);
   responses[requestType](req, res);
   return;
 
