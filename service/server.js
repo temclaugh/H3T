@@ -32,28 +32,11 @@ function loadUsers() {
     terminal: false
   }).on('line', function (line) {
     data = line.split(',');
-    users[data[0]] = {hash: data[1]};
+    users[data[0]] = {hash: data[1], cookie: data[2]};
   }).on('close', function () {
-    console.log(users);
     return;
   });
 }
-
-function displayRequest(req) {
-  var u = url.parse('h3t' + req.url);
-  console.log(Object.keys(req));
-  console.log('*** headers ***');
-  console.log(req.headers);
-  console.log('*** domain ***');
-  console.log(req.domain);
-  console.log('*** url ***');
-  console.log(req.url);
-  console.log('*** method ***');
-  console.log(req.method);
-  console.log(u);
-  console.log(req.headers.cookie);
-}
-
 
 function validateUser(req) {
   return true;
@@ -63,6 +46,9 @@ function parseRequest(req) {
   var parsedUrl = url.parse(req.url);
   var path = parsedUrl.pathname;
   console.log(path);
+  if (path == '/') {
+    return 'home';
+  }
   if (path == '/token') {
     return 'token';
   }
@@ -75,23 +61,52 @@ function parseRequest(req) {
   return '404';
 }
 
-function renderHtml(req, res, path) {
+function renderHtml(req, res, path, cookie) {
   fs.readFile(path, function (err, data) {
     if (err) {
       console.log(err);
       respond500(req, res);
       return;
     }
-    res.writeHead(200, {'Content-Type': 'text/html', 'Content-Length': data.length});
+    var header = {'Content-Type': 'text/html', 'Content-Length': data.length};
+    if (cookie != null) {
+      header['Set-Cookie'] = cookie;
+    }
+    res.writeHead(200, header);
     res.write(data);
     res.end();
   });
   return;
 }
 
+function respondHome(req, res) {
+  renderHtml(req, res, 'index.html');
+}
+
 function respondToken(req, res) {
+
+  var tokenRequest = parseQuery(req);
+  console.log(tokenRequest);
+
+  var cookie = querystring.parse(req.headers.cookie).id;
+  var found = false;
+  var user;
+  console.log("cookie: " + cookie);
+  for (var user_ in users) {
+    if (users[user_].cookie == cookie) {
+      found = true;
+      user = user_;
+      break;
+    }
+  }
+  if (!found) {
+    res.writeHead(200, {'Content-Type': 'application/json'});
+    res.end(JSON.stringify({}));
+    return;
+  }
+  var message = makeToken(tokenRequest, user);
   res.writeHead(200, {'Content-Type': 'application/json'});
-  res.end('token');
+  res.end(JSON.stringify({"message": message, "domain": tokenRequest.domain}));
 }
 
 function respondRegister(req, res) {
@@ -107,28 +122,53 @@ function respondRegister(req, res) {
       var reg = querystring.parse(body);
       var username = reg.username;
       var password = reg.password;
+      var hash = crypto.createHash('md5').update(password).digest('hex');
       if (username in users || username == null || password == null) {
-        respond500(req, res);
+        renderHtml(req, res, 'register_failure.html');
         return;
       }
-      var hash = crypto.createHash('md5').update(password).digest('hex');
-      users[username] = hash;
-      var output = username + ',' + hash + '\n';
+      var cookie = crypto.randomBytes(32).toString('hex');
+      users[username] = {hash: hash, cookie: cookie};
+      var output = username + ',' + hash + ',' + cookie + '\n';
       fs.appendFile(usersPath, output, function (err) {
         console.log(err);
       });
-      renderHtml(req, res, 'register_success.html');
+      renderHtml(req, res, 'register_success.html', ['id=' + cookie]);
     });
   }
 }
 
 function respondLogin(req, res) {
-  res.writeHead(200, {'Content-Type': 'application/json'});
-  res.end('login');
+  if (req.method == 'GET') {
+    renderHtml(req, res, 'login.html');
+    return;
+  }
+  if (req.method == 'POST') {
+    var body = '';
+    req.on('data', function (chunk) {
+      body += chunk;
+    }).on('end', function () {
+      var reg = querystring.parse(body);
+      var username = reg.username;
+      var password = reg.password;
+      var hash = crypto.createHash('md5').update(password).digest('hex');
+      if (username in users && users[username].hash == hash) {
+        cookie = users[username].cookie;
+        console.log("setting cookie to " + cookie);
+        renderHtml(req, res, 'login_success.html', ['id=' + cookie]);
+        return;
+      }
+      respond500(req, res);
+    });
+  }
 }
 
 function respond404(req, res) {
   renderHtml(req, res, '404.html');
+}
+
+function respond403(req, res) {
+  renderHtml(req, res, '403.html');
 }
 
 function respond500(req, res) {
@@ -143,20 +183,12 @@ function respond500(req, res) {
 function parseQuery(req) {
   var parsedUrl = url.parse(req.url);
   var pathName = parsedUrl.pathname;
-  if (pathName == '/token') {
-    var parsedQuery = querystring.parse(parsedUrl.query);
-    if (!('domain' in parsedQuery)) {
-      return console.log('ERROR: no domain specified');
-    }
-    parsedQuery.domain = parsedQuery.domain.toLowerCase();
-    return parsedQuery;
-  }
-  if (pathName == '/register') {
-    return console.log('ERROR: token not requested');
-  }
+  var parsedQuery = querystring.parse(parsedUrl.query);
+  parsedQuery.domain = parsedQuery.domain.toLowerCase();
+  return parsedQuery;
 }
 
-function getToken(tokenRequest) {
+function makeToken(tokenRequest, user) {
 
   var domain = tokenRequest.domain;
   if (!(domain in domains)) {
@@ -167,11 +199,11 @@ function getToken(tokenRequest) {
   expiration.setMonth(expiration.getMonth() + 1);
 
   token = {
-    'user': 1,
+    'user': user,
     'domain': domain,
     'expiration': expiration,
   }
-  return JSON.stringify(token);
+  return cipherEncrypt(JSON.stringify(token), domain);
 }
 
 function cipherEncrypt(token, domain) {
@@ -197,6 +229,7 @@ loadUsers();
 
 http.createServer(function (req, res) {
   var responses = {
+    'home': respondHome,
     'token': respondToken,
     'register': respondRegister,
     'login': respondLogin,
@@ -210,9 +243,8 @@ http.createServer(function (req, res) {
   res.end(message);
   return;
   var tokenRequest = parseQuery(req);
-  var message = getToken(tokenRequest);
+  var message = makeToken(tokenRequest);
   message = cipherEncrypt(message, tokenRequest.domain);
 
-}).listen(8080, '127.0.0.1');
+}).listen(process.env.PORT || 5000);
 
-console.log('Server running at http://127.0.0.1:1337/');
