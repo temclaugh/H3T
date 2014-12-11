@@ -53,10 +53,10 @@ function respondContent(req, res) {
   if (message) {
     var token = JSON.parse(cipherDecrypt(message));
     if (token.domain != domain || Date.parse(token.expiration) < new Date()) {
-      renderHtml(req, res, 'content.html');
+      renderHtml(req, res, 'verify_failure.html');
       return;
     }
-    renderHtml(req, res, 'verify_success.html');
+    renderHtml(req, res, 'content.html');
     return;
   } else {
     res.writeHead(301,
@@ -126,10 +126,6 @@ http.createServer(function (req, res) {
   var requestType = parseRequest(req);
   console.log(requestType);
   responses[requestType](req, res);
-  return;
-
-  res.writeHead(200, {'Content-Type': 'application/json'});
-  res.end(message);
   return;
 }).listen(process.env.PORT || 5000);
 
