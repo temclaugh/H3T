@@ -8,6 +8,7 @@ var http = require('http'),
 
 var domainsPath = 'domains.csv';
 var usersPath = 'users.csv';
+var logPath = 'log.csv';
 
 var domains = {};
 var users = {};
@@ -50,6 +51,9 @@ function parseRequest(req) {
   }
   if (path == '/token') {
     return 'token';
+  }
+  if (path == '/log') {
+    return 'log';
   }
   if (path == '/register') {
     return 'register';
@@ -113,8 +117,31 @@ function respondToken(req, res) {
   res.end(JSON.stringify({
     "message": message,
     "domain": tokenRequest.domain,
-    "expiration": expiration
+    "expiration": expiration.getTime(),
   }));
+}
+
+function respondLog(req, res) {
+  if (req.method == 'POST') {
+    var body = '';
+    req.on('data', function (chunk) {
+      body += chunk;
+    }).on('end', function () {
+      var args = querystring.parse(body);
+      var domain = args.domain;
+      var count = args.count;
+      var output = domain + ',' + count + '\n';
+      fs.appendFile(usersPath, output, function (err) {
+        console.log(err);
+      });
+      res.writeHead(200, {'Content-Type': 'application/json'});
+      res.end(JSON.stringify({}));
+    });
+  }
+  else if (req.method == 'GET') {
+    res.writeHead(200, {'Content-Type': 'text/plain'});
+    res.end("this page should not be accessed with get");
+  }
 }
 
 function respondRegister(req, res) {
@@ -242,6 +269,7 @@ http.createServer(function (req, res) {
   var responses = {
     'home': respondHome,
     'token': respondToken,
+    'log': respondLog,
     'register': respondRegister,
     'login': respondLogin,
     'logout': respondLogout,
