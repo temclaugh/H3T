@@ -49,12 +49,11 @@ function respondHome(req, res) {
 function respondContent(req, res) {
   var cookies = parseCookies(req);
   console.log(cookies);
-  var message = 'ta0jgiak/jANL7RsEyUKwIXgR8launGowgMHUitxJcgH7Uc2IsTUeNZaQ/OsfTYRhXvWyyaLB4aEgR3/5HriSxO4wHIOOSxsDAhEJMQu+AmpO8msM3sJDKdvej50Tf7q'
-//  var message = cookies['HT-Token'];
+  var message = cookies['HT-Token'];
   if (message) {
     var token = JSON.parse(cipherDecrypt(message));
     if (token.domain != domain || Date.parse(token.expiration) < new Date()) {
-      renderHtml(req, res, 'verify_failure.html');
+      renderHtml(req, res, 'content.html');
       return;
     }
     renderHtml(req, res, 'verify_success.html');
