@@ -15,6 +15,7 @@ set
 This file reads the body of the text from the H3T Service Providers. It then sends the HT-Token to background.js to be saved as a cookie.
 
 ####icon.png
+Just a cool icon for the extension
 
 ####manifest.json
 Contains the permissions for the extension
