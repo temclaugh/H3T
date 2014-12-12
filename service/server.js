@@ -1,3 +1,8 @@
+/*
+*   A simple webserver that demonstrates a H3T Service Provider.
+*/
+
+// Include necessary libraries.
 var http = require('http'),
     url = require('url'),
     querystring = require('querystring'),
@@ -6,13 +11,18 @@ var http = require('http'),
     crypto = require('crypto'),
     util = require('util');
 
+// List of participating website domains and corresponding secret keys.
 var domainsPath = 'domains.csv';
+// Database of user IDs and passwords.
 var usersPath = 'users.csv';
+// Database of logs.
 var logPath = 'log.csv';
 
+// Declare globals for later use.
 var domains = {};
 var users = {};
 
+// Load domains.csv.
 function loadDomains() {
   readline.createInterface({
     input: fs.createReadStream(domainsPath),
@@ -26,6 +36,7 @@ function loadDomains() {
   });
 }
 
+// Load users.csv.
 function loadUsers() {
   readline.createInterface({
     input: fs.createReadStream(usersPath),
@@ -39,10 +50,12 @@ function loadUsers() {
   });
 }
 
+// Tirivally verify users.
 function validateUser(req) {
   return true;
 }
 
+// Method for parsing server requests.
 function parseRequest(req) {
   var parsedUrl = url.parse(req.url);
   var path = parsedUrl.pathname;
@@ -67,6 +80,7 @@ function parseRequest(req) {
   return '404';
 }
 
+// Method for rendering HTML.
 function renderHtml(req, res, path, cookie) {
   fs.readFile(path, function (err, data) {
     if (err) {
@@ -85,10 +99,12 @@ function renderHtml(req, res, path, cookie) {
   return;
 }
 
+// Render index.html.
 function respondHome(req, res) {
   renderHtml(req, res, 'index.html');
 }
 
+// Response to token requests.
 function respondToken(req, res) {
 
   var tokenRequest = parseQuery(req);
@@ -110,6 +126,7 @@ function respondToken(req, res) {
     res.end(JSON.stringify({}));
     return;
   }
+  // Generate token and encrypt it.
   var message = makeToken(tokenRequest, user);
   var expiration = new Date();
   expiration.setSeconds(expiration.getSeconds() + 10);
@@ -121,6 +138,7 @@ function respondToken(req, res) {
   }));
 }
 
+// Output logs.
 function respondLog(req, res) {
   if (req.method == 'POST') {
     var body = '';
@@ -144,6 +162,7 @@ function respondLog(req, res) {
   }
 }
 
+// Response to user registration.
 function respondRegister(req, res) {
   if (req.method == 'GET') {
     renderHtml(req, res, 'register.html');
@@ -173,6 +192,7 @@ function respondRegister(req, res) {
   }
 }
 
+// Response to user login.
 function respondLogin(req, res) {
   if (req.method == 'GET') {
     renderHtml(req, res, 'login.html');
@@ -198,6 +218,7 @@ function respondLogin(req, res) {
   }
 }
 
+// Response to user logout.
 function respondLogout(req, res) {
   renderHtml(req, res, 'logout.html', ['id=']);
 }
@@ -219,6 +240,7 @@ function respond500(req, res) {
   rs.pipe(res);
 }
 
+// Method for parsing queries.
 function parseQuery(req) {
   var parsedUrl = url.parse(req.url);
   var pathName = parsedUrl.pathname;
@@ -227,6 +249,7 @@ function parseQuery(req) {
   return parsedQuery;
 }
 
+// Method for generating tokens.
 function makeToken(tokenRequest, user) {
 
   var domain = tokenRequest.domain;
@@ -244,6 +267,7 @@ function makeToken(tokenRequest, user) {
   return cipherEncrypt(JSON.stringify(token), domain);
 }
 
+// Method for encrypting tokens using AES-256.
 function cipherEncrypt(token, domain) {
 
   var algorithm = 'aes-256-cbc';
@@ -262,6 +286,7 @@ function cipherEncrypt(token, domain) {
 
 }
 
+// Main
 loadDomains();
 loadUsers();
 

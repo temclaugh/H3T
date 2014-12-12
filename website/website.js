@@ -1,3 +1,8 @@
+/*
+*   A simple webserver that demonstrates a H3T Content Provider.
+*/
+
+// Include necessary libraries.
 var http = require('http'),
     url = require('url'),
     querystring = require('querystring'),
@@ -6,10 +11,11 @@ var http = require('http'),
     crypto = require('crypto'),
     util = require('util');
 
-var keyPath = 'key.txt';
+// Domain name & AES-256 Secret Key 
 var domain = 'generic-h3t.herokuapp.com'
 var key = 'ADAwK9N2qhrpDuRQnD9pRb8DEpLA0o9rIGzOMP0w';
 
+// Method for parsing server requests.
 function parseRequest(req) {
   var parsedUrl = url.parse(req.url);
   var path = parsedUrl.pathname;
@@ -23,6 +29,7 @@ function parseRequest(req) {
   return '404';
 }
 
+// Method for rending HTML.
 function renderHtml(req, res, path, cookie) {
   fs.readFile(path, function (err, data) {
     if (err) {
@@ -41,24 +48,31 @@ function renderHtml(req, res, path, cookie) {
   return;
 }
 
+// Render index.html
 function respondHome(req, res) {
   renderHtml(req, res, 'index.html');
 }
 
-// TODO (junsuplee): implement token request properly.
+/*
+* Response to content request.
+*/
 function respondContent(req, res) {
+  // Grab cookie from user browser.
   var cookies = parseCookies(req);
   console.log(cookies);
   var message = cookies['HT-Token'];
+  // If token is present, decrypt and verify.
   if (message) {
     var token = JSON.parse(cipherDecrypt(message));
     if (token.domain != domain || Date.parse(token.expiration) < new Date()) {
       renderHtml(req, res, 'verify_failure.html');
       return;
     }
+    // If token is valid, serve content.
     renderHtml(req, res, 'content.html');
     return;
   } else {
+    // If token is not present, redirect to H3T Service Provider.
     res.writeHead(301,
       {Location: 'http://h3t.herokuapp.com/redirect'}
     );
@@ -92,31 +106,29 @@ function parseQuery(req) {
   return parsedQuery;
 }
 
+// AES-256 decryption algorithm.
 function cipherDecrypt(encryptedToken) {
 
   var algorithm = 'aes-256-cbc';
-
   var decipher = crypto.createDecipher(algorithm, key);
-
   var decryptedToken = decipher.update(encryptedToken, 'base64', 'utf8');
   decryptedToken += decipher.final('utf8');
 
   return decryptedToken;
 }
 
+// Method for parsing browser cookies.
 function parseCookies (request) {
     var list = {},
         rc = request.headers.cookie;
-
     rc && rc.split(';').forEach(function( cookie ) {
         var parts = cookie.split('=');
         list[parts.shift().trim()] = decodeURI(parts.join('='));
     });
-
     return list;
 }
 
-
+// Main function.
 http.createServer(function (req, res) {
   var responses = {
     'content': respondContent,
