@@ -21,10 +21,26 @@ Just a cool icon for the extension
 Contains the permissions for the extension
 
 
-## Service
+## Service (H3T Service Provider)
 
-Hosted for your convenience in heroku at  http://h3t.herokuapp.com/
+Hosted for your convenience in heroku at  http://h3t.herokuapp.com/. 
+Run locally: >>> node service.js 
 
-## Website
+#### service.js
+A simple web server written in node.js that supports login, registration and token generation.
+
+#### domain.csv
+Participating website domain and AES-256 secret key pairs. 
+
+#### users.csv
+A simple database keeping track of user ID’s and hashed passwords.
+
+#### logs.csv
+
+## Website (Participating Content Provider)
 
 Hosted for your convenience in heroku at  http://generic-h3t.herokuapp.com/
+Run locally: >>> node website.js 
+
+#### website.js
+A simple web server written in node.js that supports token decryption, redirection to H3T Service Provider, and content display.
