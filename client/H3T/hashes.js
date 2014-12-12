@@ -29,7 +29,7 @@ if(window.location.href.indexOf("/token") > -1){
 
 					// If everything worked redirect
  					 if (response.cookie_status == "success"){
- 					 	window.location = 'http://'+token.domain
+ 					 	window.location = 'http://'+ token.domain +"/content"
  					 }
 					});
 		}
@@ -42,7 +42,7 @@ function no_token(){
 	document.body.innerHTML +="<h1>You are either not logged in or do not have access to this site</h1>"
 	// Redirect user to main page
 	window.setTimeout(function(){
-		window.location = window.location.href.host ;}, 2000);
+		window.location = "http://h3t.herokuapp.com/login";}, 2000);
 
 }
 
